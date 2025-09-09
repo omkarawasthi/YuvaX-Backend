@@ -13,58 +13,270 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ENUMS
+enum UserRole {
+  Student
+  Teacher
+  Admin
+  SuperAdmin
+}
 
-  @@map("users")
+enum SlotStatus {
+  open
+  trial_reserved
+  paid_reserved
+}
+
+enum SessionStatus {
+  schedule
+  completed
+  cancelled
+  no_show
+  Reschedule
+}
+
+enum ClassType {
+  one_to_one
+  one_to_many
+  recorded
+}
+
+enum SessionType {
+  demo
+  paid
+  trial
+}
+
+enum Difficulty {
+  beginner
+  intermediate
+  advance
+}
+
+enum PaymentStatus {
+  pending
+  Paid
+  Refund
+  processing
+}
+
+
+// MODELS
+model User {
+  user_id      String    @id @default(cuid())
+  first_name   String
+  last_name    String
+  age          String?
+  ip_address   String?
+  password     String
+  is_trial     Boolean   @default(true)
+  is_active    Boolean   @default(true)
+
+  parents_name String?
+  region       String?
+  country      String?
+  date_of_birth DateTime?
+  gender       String?
+  phone        String    @unique
+  email        String    @unique
+  role         UserRole  @default(Student)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  // Relationships
+  teacherProfile TeachersRoaster? // 1-to-1: User can be a Teacher
+  sessions       Session[]        // User can have many sessions (as student)
+  payments       Payment[]        // User can make many payments
+  reservedSlots  Slot[]           // User can reserve many slots
+  sales          Sale[]           @relation("StudentSales") // User can be the student in many sales
+}
+
+model TeachersRoaster { // Renamed from Teachers_Roaster for convention
+  teacher_id  String    @id @default(cuid()) // PK of TeachersRoaster
+  first_name  String
+  last_name   String
+  days_of_week String[] // Array of strings e.g., ["Monday", "Wednesday"]
+  start_time  DateTime
+  end_time    DateTime
+
+  // Relationship to User (1-to-1, a User can extend to be a Teacher)
+  // This setup means `teacher_id` here is also `user_id` from the User table.
+  user        User      @relation(fields: [teacher_id], references: [user_id])
+  sessions    Session[] // A teacher can have many sessions (as instructor)
+}
+
+model Slot {
+  slot_id    Int        @id @default(autoincrement())
+  slot_date  DateTime
+  start_time DateTime
+  end_time   DateTime
+  capacity   Int
+  status     SlotStatus @default(open)
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+
+  // Relationships
+  // User who might have reserved this slot
+  reservedByUserId String?
+  reservedByUser   User?    @relation(fields: [reservedByUserId], references: [user_id])
+
+  // A session can occupy this slot (1-to-1 relationship with Session)
+  session Session?
+}
+
+model SalesRoster { // New table for sales personnel
+  sales_person_id String    @id @default(cuid())
+  first_name      String
+  last_name       String
+  email           String    @unique
+  phone_no        String    @unique
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  // Relationships
+  sales           Sale[]    // A sales person can handle many sales
+}
+
+model Sale {
+  sale_id           String    @id @default(cuid())
+  sales_person_id   String
+  student_id        String
+  course_id         String
+  demo_session_id   String?   // Assuming this is an ID, potentially to a Session
+  converted_to_paid Boolean   @default(false)
+  updated_at        DateTime  @updatedAt
+  created_at        DateTime  @default(now())
+
+  // Relationships
+  salesPerson       SalesRoster @relation(fields: [sales_person_id], references: [sales_person_id])
+  student           User        @relation("StudentSales", fields: [student_id], references: [user_id])
+  course            Course      @relation(fields: [course_id], references: [course_id])
+  // If demo_session_id refers to a Session model:
+  // demoSession     Session?    @relation("DemoSessionForSale", fields: [demo_session_id], references: [session_id])
+
+  payments          Payment[]   // A sale can have many payments
+  originalSessions  Session[]   @relation("OriginalSaleSessions") // For original_sale_id in Session
+  currentSessions   Session[]   @relation("CurrentSaleSessions") // For current_sale_id in Session
+}
+
+model Module {
+  module_id          String    @id @default(cuid())
+  course_id          String
+  student_note_link  String?
+  teacher_note_link  String?
+  PPT_link           String?
+  module_description String?
+  module_title       String
+  duration           Int
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  // Relationships
+  course             Course    @relation(fields: [course_id], references: [course_id])
+  sessions           Session[]
+  chapters           Chapter[]
+}
+
+model Session {
+  session_id      String        @id @default(cuid())
+  chapter_id      String?
+  teacher_id      String
+  module_id       String
+  user_id         String        // This is the student
+  category_id     Int
+  course_id       String
+  slot_id         Int?          @unique // One-to-one with Slot, a Session takes one slot
+  schedule_at     DateTime
+  // The second 'user_id timezone' is a typo, removed.
+  status          SessionStatus @default(schedule)
+  class_type      ClassType
+  session_type    SessionType
+  actual_start_time DateTime?
+  actual_end_time   DateTime?
+  original_sale_id  String?
+  current_sale_id   String?
+
+  // Relationships
+  student         User            @relation(fields: [user_id], references: [user_id])
+  teacher         TeachersRoaster @relation(fields: [teacher_id], references: [teacher_id])
+  module          Module          @relation(fields: [module_id], references: [module_id])
+  course          Course          @relation(fields: [course_id], references: [course_id])
+  category        Category        @relation(fields: [category_id], references: [category_id])
+  chapter         Chapter?        @relation(fields: [chapter_id], references: [chapter_id])
+  originalSale    Sale?           @relation("OriginalSaleSessions", fields: [original_sale_id], references: [sale_id])
+  currentSale     Sale?           @relation("CurrentSaleSessions", fields: [current_sale_id], references: [sale_id])
+  slot            Slot?           @relation(fields: [slot_id], references: [slot_id])
+
+  @@unique([user_id, course_id, schedule_at]) // Example: a student can't schedule two sessions for the same course at the exact same time
+  @@unique([slot_id], map: "Session_slot_unique") // Ensure only one session per slot
 }
 
 model Category {
-  id        Int           @id @default(autoincrement())
-  name      String        @unique
-  courses   Course[]
-  demos     DemoRequest[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  category_id    Int      @id
+  category_name  String   @unique
+  category_image String?
+  created_at     DateTime @default(now())
+
+  // Relationships
+  courses        Course[]
+  sessions       Session[]
 }
 
 model Course {
-  id           Int           @id @default(autoincrement())
-  name         String
-  categoryId   Int
-  category     Category      @relation(fields: [categoryId], references: [id])
-  difficulties Difficulty[]
-  demos        DemoRequest[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  course_id          String      @id @default(cuid())
+  course_name        String
+  category_id        Int
+  course_description String?
+  course_content     String?
+  difficulty         Difficulty
+  course_duration    String
+  actual_price       Float
+  discounted_price   Float?
+  language           String
+  total_lesson       Int
+  class_type         ClassType
+  max_age            String?
+
+  // Relationships
+  category           Category    @relation(fields: [category_id], references: [category_id])
+  modules            Module[]
+  sessions           Session[]
+  sales              Sale[]      // Courses can be part of many sales
+  payments           Payment[]
 }
- 
-model Difficulty {
-  id       Int           @id @default(autoincrement())
-  level    String
-  courseId Int
-  course   Course        @relation(fields: [courseId], references: [id])
-  demos    DemoRequest[]
+
+model Chapter {
+  chapter_id  String    @id @default(cuid())
+  module_id   String
+  chapter_name String
+  description String?
+  capacity    String?   // Reconsider if this should be Int for numerical capacity
+  updated_at  DateTime  @updatedAt
+  created_at  DateTime  @default(now())
+
+  // Relationships
+  module      Module    @relation(fields: [module_id], references: [module_id])
+  sessions    Session[]
 }
 
-model DemoRequest {
-  id           Int     @id @default(autoincrement())
-  categoryId   Int
-  courseId     Int
-  difficultyId Int
-  slot         String
-  status       String  @default("Pending")
-  teacher      String?
+model Payment {
+  payment_ID          String        @id @default(cuid())
+  no_of_session_purchase Int?
+  sales_id            String?       // Payment linked to a specific sale
+  user_id             String
+  is_converted        Boolean       @default(false)
+  course_id           String?
+  amount              Float
+  currency            String
+  payment_method      String?
+  transaction_id      String        @unique
+  receipt             String?
+  status              PaymentStatus @default(pending)
+  updated_at          DateTime      @updatedAt
+  created_at          DateTime      @default(now())
 
-  category   Category   @relation(fields: [categoryId], references: [id])
-  course     Course     @relation(fields: [courseId], references: [id])
-  difficulty Difficulty @relation(fields: [difficultyId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Relationships
+  user                User          @relation(fields: [user_id], references: [user_id])
+  sale                Sale?         @relation(fields: [sales_id], references: [sale_id])
+  course              Course?       @relation(fields: [course_id], references: [course_id])
 }
