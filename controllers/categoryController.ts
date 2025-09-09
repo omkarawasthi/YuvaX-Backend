@@ -4,14 +4,20 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 export const getCategories = async (req: Request, res: Response) => {
-  const categories = await prisma.category.findMany();
+  const categories = await prisma.category.findMany({
+    include:{
+      courses:true
+    }
+  });
+
   if (!categories) {
     return res.status(400).json({
       success: false,
       message: "No category Exists",
     });
   }
-  return res.status(400).json({
+
+  return res.status(200).json({
     success: true,
     message: "Fetched Successfully",
     Categories: categories,
@@ -21,21 +27,30 @@ export const getCategories = async (req: Request, res: Response) => {
 export const getCategoryById = async (req: Request, res: Response) => {
   try {
     const { categoryId } = req.params;
-    
-    console.log(categoryId);
+    const categoryIdNumber = Number(categoryId);
 
-    const getById = await prisma.category.findMany({
-      where: { category_id: Number(categoryId) },
+    if (isNaN(categoryIdNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category id",
+      });
+    }
+
+    const getById = await prisma.category.findUnique({
+      where: {
+        category_id: categoryIdNumber,
+      },
+      include: { courses: true },
     });
 
     if (!getById) {
-      return res.status(400).json({
+      return res.status(404).json({
         success: false,
         message: "No category Exists",
       });
     }
 
-    return res.status(400).json({
+    return res.status(200).json({
       success: true,
       message: "Fetched Successfully",
       Categories: getById,
@@ -43,7 +58,7 @@ export const getCategoryById = async (req: Request, res: Response) => {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: "Error creating category",
+      message: "Internal Server Error",
       error: error.message,
     });
   }
@@ -89,67 +104,78 @@ export const createCategory = async (req: Request, res: Response) => {
   } catch (error: any) {
     return res.status(500).json({
       success: false,
-      message: "Error creating category",
+      message: "Internal Server Error",
       error: error.message,
     });
   }
 };
 
-// export const updateCategory = async (req: Request, res: Response) => {
-//   try {
-//     const id = Number(req.params.id);
-//     const { name } = req.body;
-//     if (!name) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Category name is required",
-//       });
-//     }
+export const updateCategory = async (req: Request, res: Response) => {
+  try {
+    const categoryId = Number(req.params.id);
 
-//     const updated = await prisma.category.update({
-//       where: { id },
-//       data: { name },
-//     });
+    console.log("udpage category ID: ", categoryId);
 
-//     return res.status(400).json({
-//       success: false,
-//       message: "Category name is required",
-//       updatedCategory: updated,
-//     });
+    if (isNaN(categoryId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category id",
+      });
+    }
 
-//   } catch (error: any) {
-//     res.status(500).json({
-//       success: false,
-//       message: "Internal Server Error",
-//       error: error.message,
-//     });
-//   }
-// };
+    // req.body can contain any subset of updatable fields
+    const updated = await prisma.category.update({
+      where: { category_id: categoryId },
+      data: req.body,
+    });
 
-// export const deleteCategory = async (req: Request, res: Response) => {
-//   try {
-//     const id = Number(req.params.id);
+    return res.status(200).json({
+      success: true,
+      message: "Category updated successfully",
+      updatedCategory: updated,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
 
-//     const existedCategory = await prisma.category.findFirst({
-//       where: {
-//         id: id,
-//       },
-//     });
+export const deleteCategory = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
 
-//     if (!existedCategory) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Category Didn't Exists",
-//       });
-//     }
+    const existedCategory = await prisma.category.findFirst({
+      where: {
+        category_id: id,
+      },
+    });
 
-//     await prisma.category.delete({ where: { id } });
+    if (!existedCategory) {
+      return res.status(400).json({
+        success: false,
+        message: "Category Didn't Exists",
+      });
+    }
 
-//     res.status(204).json({
-//       success: true,
-//       message: "Category Deleted Successfully",
-//     });
-//   } catch (e: any) {
-//     res.status(500).json({ message: e.message });
-//   }
-// };
+    await prisma.category.delete({
+      where: {
+        category_id: id,
+      },
+    });
+
+    return res.status(204).json({
+      success: true,
+      message: "Category Deleted Successfully",
+    });
+
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
