@@ -26,8 +26,6 @@ export const getCoursesByCategory = async (req: Request, res: Response) => {
   res.json(courses);
 };
 
-
-
 export const createCategory = async (req: Request, res: Response) => {
   const { name } = req.body;
 
@@ -89,15 +87,14 @@ export const updateCategory = async (req: Request, res: Response) => {
     return res.status(400).json({
       success: false,
       message: "Category name is required",
-      updatedCategory:updated
-    }
-    );
-  } 
-  catch (error: any) {
-    res.status(500).json({ 
-      success:false,
-      message:"Internal Server Error",
-      error : error.message 
+      updatedCategory: updated,
+    });
+    
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
@@ -120,13 +117,11 @@ export const deleteCategory = async (req: Request, res: Response) => {
     }
 
     await prisma.category.delete({ where: { id } });
-    
 
     res.status(204).json({
-      success:true,
-      message:"Category Deleted Successfully"
+      success: true,
+      message: "Category Deleted Successfully",
     });
-
   } catch (e: any) {
     res.status(500).json({ message: e.message });
   }
