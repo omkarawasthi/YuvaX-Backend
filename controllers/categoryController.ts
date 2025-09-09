@@ -177,5 +177,6 @@ export const deleteCategory = async (req: Request, res: Response) => {
       message: "Internal Server Error",
       error: error.message,
     });
+    
   }
 };

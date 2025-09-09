@@ -1,9 +1,9 @@
-import { Router } from "express";
-import { requestDemo, getDemoDetails } from "../controllers/demoController";
+// import { Router } from "express";
+// import { requestDemo, getDemoDetails } from "../controllers/demoController";
 
-const router = Router();
+// const router = Router();
 
-router.post("/request", requestDemo);
-router.get("/:demoId", getDemoDetails);
+// router.post("/request", requestDemo);
+// router.get("/:demoId", getDemoDetails);
 
-export default router;
+// export default router;
