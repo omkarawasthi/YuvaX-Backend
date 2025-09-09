@@ -114,6 +114,8 @@ export const updateCourse = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Course not found" });
     }
 
+    
+
     const course = await prisma.course.update({
       where: { course_id: courseId },
       data: {
