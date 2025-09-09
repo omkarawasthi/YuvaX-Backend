@@ -1,8 +1,5 @@
 import express, {Express, Request, Response} from "express"
-import authRouter from "../routes/auth";
 import categoryRoutes from "../routes/category";
-import courseRoutes from "../routes/course";
-import demoRoutes from "../routes/demo";
 
 const app:Express = express()
 
@@ -15,7 +12,7 @@ app.use(express.json());
 // app.use("/api",authRouter);
 app.use("/categories", categoryRoutes);
 // app.use("/courses", courseRoutes);
-// app.use("/demo", demoRoutes);
+// app.use("/demo", demoRoutes)
 
 app.listen(3000,()=>{
     console.log(`Server Running on port 3000`)
